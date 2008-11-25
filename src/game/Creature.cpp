@@ -119,8 +119,8 @@ m_lootMoney(0), m_lootRecipient(0),
 m_deathTimer(0), m_respawnTime(0), m_respawnDelay(25), m_corpseDelay(60), m_respawnradius(0.0f),
 m_gossipOptionLoaded(false), m_emoteState(0), m_isPet(false), m_isTotem(false),
 m_regenTimer(2000), m_defaultMovementType(IDLE_MOTION_TYPE), m_equipmentId(0),
-m_AlreadyCallAssistance(false), m_regenHealth(true), m_AI_locked(false), m_isDeadByDefault(false),
-m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL),m_creatureInfo(NULL), m_DBTableGuid(0)
+m_AlreadyCallAssistance(false), m_AlreadyFleeAndCallAssistance(false), m_regenHealth(true), m_AI_locked(false),
+m_isDeadByDefault(false), m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL),m_creatureInfo(NULL), m_DBTableGuid(0)
 {
     m_valuesCount = UNIT_END;
 
@@ -1686,7 +1686,7 @@ bool Creature::IsVisibleInGridForPlayer(Player* pl) const
 
 void Creature::CallAssistance()
 {
-    if( !m_AlreadyCallAssistance && getVictim() && !isPet() && !isCharmed())
+    if( !m_AlreadyFleeAndCallAssistance && getVictim() && !isPet() && !isCharmed())
     {
         SetNoCallAssistance(true);
 
@@ -1718,6 +1718,51 @@ void Creature::CallAssistance()
                     // Pushing guids because in delay can happen some creature gets despawned => invalid pointer
                     e->AddAssistant((*assistList.begin())->GetGUID());
                     assistList.pop_front();
+                }
+                m_Events.AddEvent(e, m_Events.CalculateTime(sWorld.getConfig(CONFIG_CREATURE_FAMILY_ASSISTANCE_DELAY)));
+            }
+        }
+    }
+}
+
+void Creature::FleeAndCallAssistance(float OverrideRadius)
+{
+    if( !m_AlreadyFleeAndCallAssistance && getVictim() && !isPet() && !isCharmed())
+    {
+        SetNoFleeAndCallAssistance(true);
+
+        float radius = sWorld.getConfig(CONFIG_CREATURE_FAMILY_ASSISTANCE_RADIUS);
+
+        if (OverrideRadius)
+            radius = OverrideRadius;
+
+        if(radius > 0)
+        {
+            std::list<Creature*> remoteAssistList;
+
+            {
+                CellPair p(MaNGOS::ComputeCellPair(GetPositionX(), GetPositionY()));
+                Cell cell(p);
+                cell.data.Part.reserved = ALL_DISTRICT;
+                cell.SetNoCreate();
+
+                MaNGOS::AnyAssistCreatureInRangeCheck u_check(this, getVictim(), radius);
+                MaNGOS::CreatureListSearcher<MaNGOS::AnyAssistCreatureInRangeCheck> searcher(remoteAssistList, u_check);
+
+                TypeContainerVisitor<MaNGOS::CreatureListSearcher<MaNGOS::AnyAssistCreatureInRangeCheck>, GridTypeMapContainer >  grid_creature_searcher(searcher);
+
+                CellLock<GridReadGuard> cell_lock(cell, p);
+                cell_lock->Visit(cell_lock, grid_creature_searcher, *GetMap());
+            }
+
+            if (!remoteAssistList.empty())
+            {
+                AssistDelayEvent *e = new AssistDelayEvent(getVictim()->GetGUID(), *this);
+                while (!remoteAssistList.empty())
+                {
+                    // Pushing guids because in delay can happen some creature gets despawned => invalid pointer
+                    e->AddAssistant((*remoteAssistList.begin())->GetGUID());
+                    remoteAssistList.pop_front();
                 }
                 m_Events.AddEvent(e, m_Events.CalculateTime(sWorld.getConfig(CONFIG_CREATURE_FAMILY_ASSISTANCE_DELAY)));
             }

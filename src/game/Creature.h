@@ -548,7 +548,9 @@ class MANGOS_DLL_SPEC Creature : public Unit
         float GetAttackDistance(Unit const* pl) const;
 
         void CallAssistance();
+        void FleeAndCallAssistance(float OverrideRadius = 0);
         void SetNoCallAssistance(bool val) { m_AlreadyCallAssistance = val; }
+        void SetNoFleeAndCallAssistance(bool val) { m_AlreadyFleeAndCallAssistance = val; }
         bool CanAssistTo(const Unit* u, const Unit* enemy) const;
 
         MovementGeneratorType GetDefaultMovementType() const { return m_defaultMovementType; }
@@ -635,6 +637,7 @@ class MANGOS_DLL_SPEC Creature : public Unit
         uint32 m_equipmentId;
 
         bool m_AlreadyCallAssistance;
+        bool m_AlreadyFleeAndCallAssistance;
         bool m_regenHealth;
         bool m_AI_locked;
         bool m_isDeadByDefault;
