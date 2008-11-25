@@ -13154,6 +13154,23 @@ void Player::SendPushToPartyResponse( Player *pPlayer, uint32 msg )
     }
 }
 
+//TODO: implement use. For QuestFlags|2, if player accept quest with this flag, party members will receive message to accept.
+void Player::SendQuestConfirmAccept( Quest const* pQuest, Player *pPlayer, uint64 sender )
+{
+    std::string Title = pQuest->GetTitle();
+
+    if (pPlayer)
+    {
+        WorldPacket data( SMSG_QUEST_CONFIRM_ACCEPT, (4+Title.size()+8) );
+        data << uint32(pQuest->GetQuestId());
+        data << Title;
+        data << sender;
+        pPlayer->GetSession()->SendPacket( &data );
+
+        sLog.outDebug("WORLD: Sent SMSG_QUEST_CONFIRM_ACCEPT");
+    }
+}
+
 void Player::SendQuestUpdateAddItem( Quest const* pQuest, uint32 item_idx, uint32 count )
 {
     WorldPacket data( SMSG_QUESTUPDATE_ADD_ITEM, (4+4) );
