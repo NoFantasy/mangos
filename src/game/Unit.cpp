@@ -6943,6 +6943,7 @@ bool Unit::AttackStop()
     {
         // reset call assistance
         ((Creature*)this)->SetNoCallAssistance(false);
+        ((Creature*)this)->SetNoFleeAndCallAssistance(false);
     }
 
     SendAttackStop(victim);

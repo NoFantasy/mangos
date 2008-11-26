@@ -1727,8 +1727,11 @@ void Creature::CallAssistance()
 
 void Creature::FleeAndCallAssistance(float OverrideRadius)
 {
-    if( !m_AlreadyFleeAndCallAssistance && getVictim() && !isPet() && !isCharmed())
+    if (!m_AlreadyFleeAndCallAssistance && getVictim() && !isPet() && !isCharmed())
     {
+        if (HasAuraType(SPELL_AURA_PREVENTS_FLEEING))
+            return;
+
         SetNoFleeAndCallAssistance(true);
 
         float radius = sWorld.getConfig(CONFIG_CREATURE_FAMILY_ASSISTANCE_RADIUS);
@@ -1736,7 +1739,7 @@ void Creature::FleeAndCallAssistance(float OverrideRadius)
         if (OverrideRadius)
             radius = OverrideRadius;
 
-        if(radius > 0)
+        if (radius > 0)
         {
             std::list<Creature*> remoteAssistList;
 
@@ -1757,6 +1760,13 @@ void Creature::FleeAndCallAssistance(float OverrideRadius)
 
             if (!remoteAssistList.empty())
             {
+                Unit* pHelper = NULL;
+                for (std::list<Creature*>::iterator itr = remoteAssistList.begin(); itr != remoteAssistList.end(); ++itr)
+                {
+                    if (pHelper = Unit::GetUnit(*this,(*itr)->GetGUID()))
+                        break;
+                }
+
                 AssistDelayEvent *e = new AssistDelayEvent(getVictim()->GetGUID(), *this);
                 while (!remoteAssistList.empty())
                 {
@@ -1764,7 +1774,31 @@ void Creature::FleeAndCallAssistance(float OverrideRadius)
                     e->AddAssistant((*remoteAssistList.begin())->GetGUID());
                     remoteAssistList.pop_front();
                 }
+
                 m_Events.AddEvent(e, m_Events.CalculateTime(sWorld.getConfig(CONFIG_CREATURE_FAMILY_ASSISTANCE_DELAY)));
+
+                RemoveUnitMovementFlag(MOVEMENTFLAG_WALK_MODE);
+                //addUnitState(UNIT_STAT_FLEEING);
+                SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_FLEEING);
+
+                SendMonsterMoveWithSpeed(pHelper->GetPositionX(),pHelper->GetPositionY(),pHelper->GetPositionZ(),GetUnitMovementFlags(),0,NULL);
+                GetMap()->CreatureRelocation(this,pHelper->GetPositionX(),pHelper->GetPositionY(),pHelper->GetPositionZ(),pHelper->GetOrientation());
+
+                sLog.outDebug("Creature::FleeAndCallAssistance: assistants found and runs toward helper target.");
+            }
+            else
+            {
+                float x,y,z;
+                GetRandomPoint(GetPositionX(),GetPositionY(),GetPositionZ(),radius,x,y,z);
+
+                RemoveUnitMovementFlag(MOVEMENTFLAG_WALK_MODE);
+                //addUnitState(UNIT_STAT_FLEEING);
+                SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_FLEEING);
+
+                SendMonsterMoveWithSpeed(x,y,z,GetUnitMovementFlags(),0,NULL);
+                GetMap()->CreatureRelocation(this,x,y,z,GetOrientation());
+
+                sLog.outDebug("Creature::FleeAndCallAssistance: no assistants, runs toward random point.");
             }
         }
     }
